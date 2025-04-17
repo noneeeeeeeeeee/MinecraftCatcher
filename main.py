@@ -32,7 +32,6 @@ SFX_ENDERPEARL_ACTIVATE = "./sounds/sfx/KABOOM.mp3"
 
 # Image assets
 IMAGE_STEVE_STANDING = pygame.image.load("./img/Steve-Standing.png")
-IMAGE_STEVE_STANDING = pygame.image.load("./img/Steve-Standing.png")
 IMAGE_STEVE_FALLING = pygame.image.load("./img/Steve-Falling.png")
 IMAGE_CHICKEN = pygame.image.load("./img/Raw-Chicken.png")
 IMAGE_COOKED_CHICKEN = pygame.image.load("./img/Cooked-Chicken.png")
@@ -43,6 +42,7 @@ DIAMOND_SWORD_ICON = pygame.image.load("./img/Diamond-Sword.png")
 DIAMOND_SWORD_ICON_GRAY = pygame.image.load("./img/Diamond Sword-Grayscale.png")
 ENDER_PEARL_ICON = pygame.image.load("./img/Ender-Pearl.png")
 ENDER_PEARL_ICON_GRAY = pygame.image.load("./img/Ender-Pearl-Grayscale.png")
+LUCKY_BLOCK = pygame.image.load("./img/Lucky-Block.png")
 
 # Asset sizes
 STEVE_SIZE = (100, 100)
@@ -63,11 +63,9 @@ WHITE = (255, 255, 255)
 BLACK = (0, 0, 0)
 BG_COLOR = (50, 150, 50)
 
-# Define volume levels
 MUSIC_VOLUME = 0.1
 SFX_VOLUME = 1
 pygame.mixer.music.set_volume(MUSIC_VOLUME)
-# Bucket collision sizes
 LAVA_BUCKET_COLLISION_SIZE = (50, 50)
 WATER_BUCKET_COLLISION_SIZE = (50, 50)
 
@@ -101,7 +99,7 @@ KEYBINDS = {
     "switch_bucket": pygame.K_w,
     "diamond_sword": pygame.K_q,
     "ender_pearl": pygame.K_e,
-    "sprint": pygame.K_LSHIFT,  # New entry for Sprint
+    "sprint": pygame.K_LSHIFT,
 }
 
 # ----------------------------
@@ -109,23 +107,10 @@ KEYBINDS = {
 # ----------------------------
 
 
-def play_diamond_sword_activate():
-    global diamond_sword_status
-    pygame.mixer.Sound(SFX_DIAMOND_SWORD_ACTIVATE).set_volume(SFX_VOLUME)
-    pygame.mixer.Sound(SFX_DIAMOND_SWORD_ACTIVATE).play()
-
-
-def play_diamond_sword_ready():
-    global diamond_sword_status
-    pygame.mixer.Sound(SFX_DIAMOND_SWORD_READY).set_volume(SFX_VOLUME)
-    pygame.mixer.Sound(SFX_DIAMOND_SWORD_READY).play()
-
-
-def play_diamond_sword_used():
-    global diamond_sword_status
-
-    pygame.mixer.Sound(SFX_DIAMOND_SWORD_USED).set_volume(SFX_VOLUME)
-    pygame.mixer.Sound(SFX_DIAMOND_SWORD_USED).play()
+def play_sound(path, volume=1.0):
+    s = pygame.mixer.Sound(path)
+    s.set_volume(volume)
+    s.play()
 
 
 # Catcher class to represent the player
@@ -176,7 +161,6 @@ class Catcher(pygame.sprite.Sprite):
         if self.switch_cooldown > 0:
             self.switch_cooldown -= dt
 
-        # Adjust image and collision size based on equipped bucket
         if self.equipped == "lava":
             self.image = pygame.transform.scale(IMAGE_LAVA_BUCKET, LAVA_BUCKET_SIZE)
             self.rect.size = LAVA_BUCKET_COLLISION_SIZE
@@ -190,13 +174,11 @@ class Catcher(pygame.sprite.Sprite):
         if self.switch_cooldown <= 0:
             if self.equipped == "lava":
                 self.equipped = "water"
-                pygame.mixer.Sound(SFX_WATER_BUCKET).set_volume(SFX_VOLUME)
-                pygame.mixer.Sound(SFX_WATER_BUCKET).play()
+                play_sound(SFX_WATER_BUCKET, SFX_VOLUME)
             else:
                 self.equipped = "lava"
-                pygame.mixer.Sound(SFX_LAVA_BUCKET).set_volume(SFX_VOLUME)
-                pygame.mixer.Sound(SFX_LAVA_BUCKET).play()
-            self.switch_cooldown = 0.5  # 0.5 seconds cooldown
+                play_sound(SFX_LAVA_BUCKET, SFX_VOLUME)
+            self.switch_cooldown = 0.5
 
 
 # Falling object – can be a chicken drop
@@ -208,7 +190,6 @@ class Chicken(pygame.sprite.Sprite):
             midtop=(random.randint(50, SCREEN_WIDTH - 50), -50)
         )
         self.base_speed = 200
-        # 20% chance to be faster by x1.5
         self.speed = self.base_speed * (1.5 if random.uniform(0, 1) < 0.2 else 1)
 
     def update(self, dt):
@@ -223,7 +204,7 @@ class CookedChicken(pygame.sprite.Sprite):
             midtop=(random.randint(50, SCREEN_WIDTH - 50), -50)
         )
         self.base_speed = 200
-        self.speed = self.base_speed  # standard speed
+        self.speed = self.base_speed
 
     def update(self, dt):
         self.rect.y += self.speed * dt
@@ -251,7 +232,7 @@ class Steve(pygame.sprite.Sprite):
         super().__init__()
         self.image = pygame.transform.scale(IMAGE_STEVE_STANDING, STEVE_SIZE)
         self.rect = self.image.get_rect(midtop=(SCREEN_WIDTH // 2, 10))
-        self.direction = 1  # 1 for right, -1 for left
+        self.direction = 1
         self.move_speed = random.uniform(140, 200)
         self.drop_chance = 5
         self.talk_timer = random.uniform(15, 30)
@@ -260,7 +241,6 @@ class Steve(pygame.sprite.Sprite):
 
     def update(self, dt):
         if not self.is_dropping:
-            # Move Steve along top; bounce at boundaries
             self.rect.x += self.direction * self.move_speed * dt
             if self.rect.left < 0:
                 self.rect.left = 0
@@ -269,12 +249,10 @@ class Steve(pygame.sprite.Sprite):
                 self.rect.right = SCREEN_WIDTH
                 self.direction = -1
 
-            # Count down the talk timer
             self.talk_timer -= dt
             if self.talk_timer <= 0:
-                pygame.mixer.Sound(SFX_I_AM_STEVE).set_volume(SFX_VOLUME)
-                pygame.mixer.Sound(SFX_I_AM_STEVE).play()
-                self.drop_chance += 30  # increase drop chance by 30%
+                play_sound(SFX_I_AM_STEVE, SFX_VOLUME)
+                self.drop_chance += 30
                 self.talk_timer = random.uniform(15, 30)
 
             # Count down the drop timer
@@ -284,7 +262,6 @@ class Steve(pygame.sprite.Sprite):
                 if roll < self.drop_chance:
                     self.drop()
                 else:
-                    # failed roll, add 15% chance for next drop
                     self.drop_chance += 15
                 self.drop_timer = random.uniform(10, 15)
         else:
@@ -293,11 +270,9 @@ class Steve(pygame.sprite.Sprite):
     def drop(self):
         self.is_dropping = True
         self.image = pygame.transform.scale(IMAGE_STEVE_FALLING, STEVE_SIZE)
-        pygame.mixer.Sound(SFX_STEVE_DROPPING).set_volume(SFX_VOLUME)
-        pygame.mixer.Sound(SFX_STEVE_DROPPING).play()
+        play_sound(SFX_STEVE_DROPPING, SFX_VOLUME)
 
     def reset_after_drop(self):
-        # Reset Steve after he has dropped
         self.is_dropping = False
         self.image = pygame.transform.scale(IMAGE_STEVE_STANDING, STEVE_SIZE)
         self.rect.y = 10
@@ -323,10 +298,8 @@ def draw_ui(
     catcher,
 ):
     font = pygame.font.SysFont(None, 30)
-    # Score top left
     score_text = font.render(f"Score: {score}", True, WHITE)
     screen.blit(score_text, (10, 10))
-    # Active effects below score
     active_effects = []
     if steve_multiplier_timer > 0:
         active_effects.append(f"x{steve_multi:.1f} ({int(steve_multiplier_timer)}s)")
@@ -339,7 +312,6 @@ def draw_ui(
     effects_font = pygame.font.SysFont(None, 30)
     effects_render = effects_font.render(active_effects_text, True, WHITE)
     screen.blit(effects_render, (10, 40))
-    # Score feed below active effects
     feed_y = 100
     current_time = pygame.time.get_ticks()
     global score_feed
@@ -495,7 +467,6 @@ def main_menu(screen):
             ),
         )
 
-        # Draw info button
         pygame.draw.rect(screen, BLACK, info_button)
         info_text = small_font.render("How to Play", True, WHITE)
         screen.blit(
@@ -506,7 +477,6 @@ def main_menu(screen):
             ),
         )
 
-        # Draw settings button
         pygame.draw.rect(screen, BLACK, settings_button)
         settings_text = small_font.render("Settings", True, WHITE)
         screen.blit(
@@ -517,7 +487,6 @@ def main_menu(screen):
             ),
         )
 
-        # Event processing
         for event in pygame.event.get():
             if event.type == pygame.QUIT:
                 pygame.quit()
@@ -574,7 +543,6 @@ def main_menu(screen):
                 KEYBINDS[active_keybind] = event.key
                 active_keybind = None
 
-        # If settings screen is active
         if show_settings:
             settings_surf = pygame.Surface(
                 (
@@ -586,27 +554,23 @@ def main_menu(screen):
             settings_surf.fill((30, 30, 30))
             screen.blit(settings_surf, (settings_margin, settings_margin))
 
-            # Titles for sections
             sounds_label = small_font.render("Sounds", True, WHITE)
             screen.blit(sounds_label, (settings_margin + 50, 110))
             keybinds_label = small_font.render("Keybinds", True, WHITE)
             screen.blit(keybinds_label, (settings_margin + 50, 310))
 
-            # Music volume slider
             pygame.draw.rect(screen, WHITE, music_slider)
             music_knob_x = music_slider.x + int(music_volume * slider_width)
             pygame.draw.circle(screen, BLACK, (music_knob_x, music_slider.centery), 10)
             music_text = small_font.render("Music Volume", True, WHITE)
             screen.blit(music_text, (settings_margin + 50, music_slider.y - 20))
 
-            # SFX volume slider
             pygame.draw.rect(screen, WHITE, sfx_slider)
             sfx_knob_x = sfx_slider.x + int(sfx_volume * slider_width)
             pygame.draw.circle(screen, BLACK, (sfx_knob_x, sfx_slider.centery), 10)
             sfx_text = small_font.render("SFX Volume", True, WHITE)
             screen.blit(sfx_text, (settings_margin + 50, sfx_slider.y - 20))
 
-            # Keybinds
             for action, rect in keybinds_rects.items():
                 action_text = small_font.render(keybind_labels[action], True, WHITE)
                 key_text = small_font.render(
@@ -616,7 +580,6 @@ def main_menu(screen):
                 pygame.draw.rect(screen, WHITE, rect)
                 screen.blit(key_text, (rect.x + 5, rect.y + 5))
 
-            # Draw back button
             pygame.draw.rect(screen, BLACK, back_button)
             back_text = small_font.render("Back", True, WHITE)
             screen.blit(
@@ -673,11 +636,8 @@ def main_menu(screen):
                 "- Watch out for Chicken Jockeys—they're dangerous!",
             ]
 
-            # Scrolling logic
             scroll_area = pygame.Rect(70, 120, SCREEN_WIDTH - 140, SCREEN_HEIGHT - 200)
-            pygame.draw.rect(
-                screen, BG_COLOR, scroll_area
-            )  # Background for scroll area
+            pygame.draw.rect(screen, BG_COLOR, scroll_area)
             clip_surface = pygame.Surface(scroll_area.size)
             clip_surface.set_colorkey(BG_COLOR)
             clip_surface.fill(BG_COLOR)
@@ -689,9 +649,8 @@ def main_menu(screen):
                 screen.blit(text_render, (70, y_offset))
                 y_offset += 30
 
-            screen.set_clip(None)  # Reset clipping
+            screen.set_clip(None)
 
-            # Draw back button
             pygame.draw.rect(screen, BLACK, back_button)
             back_text = small_font.render("Back", True, WHITE)
             screen.blit(
@@ -714,7 +673,6 @@ def game_loop(screen):
     pygame.mixer.music.load(MUSIC_PLAYING)
     pygame.mixer.music.play(-1)
 
-    # Groups for sprites
     catcher = Catcher()
     catcher_group = pygame.sprite.GroupSingle(catcher)
     chicken_group = pygame.sprite.Group()
@@ -722,7 +680,6 @@ def game_loop(screen):
     steve_group = pygame.sprite.GroupSingle(steve)
     jockey_group = pygame.sprite.Group()
 
-    # Game variables
     score = 0
     lives = 5
     frenzy_multi = 1.0
@@ -753,17 +710,16 @@ def game_loop(screen):
             if diamond_sword_timer <= 0:
                 catcher.equipped = "lava"
                 diamond_sword_cooldown = DIAMOND_SWORD_COOLDOWN
-                play_diamond_sword_used()
+                play_sound(SFX_DIAMOND_SWORD_USED, SFX_VOLUME)
         elif diamond_sword_cooldown > 0:
             diamond_sword_cooldown -= dt
             if diamond_sword_cooldown <= 0:
-                play_diamond_sword_ready()
+                play_sound(SFX_DIAMOND_SWORD_READY, SFX_VOLUME)
 
         if ender_pearl_timer > 0:
             ender_pearl_timer -= dt
             if ender_pearl_timer <= 0:
-                pygame.mixer.Sound(SFX_ENDERPEARL_READY).set_volume(SFX_VOLUME)
-                pygame.mixer.Sound(SFX_ENDERPEARL_READY).play()
+                play_sound(SFX_ENDERPEARL_READY, SFX_VOLUME)
 
         for event in pygame.event.get():
             if event.type == pygame.QUIT:
@@ -775,25 +731,22 @@ def game_loop(screen):
                 ):
                     diamond_sword_timer = DIAMOND_SWORD_DURATION
                     catcher.equipped = "sword"
-                    play_diamond_sword_activate()
+                    play_sound(SFX_DIAMOND_SWORD_ACTIVATE, SFX_VOLUME)
                 if event.key == KEYBINDS["switch_bucket"]:
                     catcher.switch_bucket()
                 if event.key == KEYBINDS["ender_pearl"] and ender_pearl_timer <= 0:
                     rel_x = catcher.rect.centerx - SCREEN_WIDTH / 2
                     new_center = SCREEN_WIDTH / 2 - rel_x
                     catcher.rect.centerx = new_center
-                    pygame.mixer.Sound(SFX_ENDERPEARL_ACTIVATE).set_volume(SFX_VOLUME)
-                    pygame.mixer.Sound(SFX_ENDERPEARL_ACTIVATE).play()
+                    play_sound(SFX_ENDERPEARL_ACTIVATE, SFX_VOLUME)
                     ender_pearl_timer = ENDER_PEARL_COOLDOWN
-                    pygame.mixer.Sound(SFX_ENDERPEARL_USED).set_volume(SFX_VOLUME)
-                    pygame.mixer.Sound(SFX_ENDERPEARL_USED).play()
+                    play_sound(SFX_ENDERPEARL_USED, SFX_VOLUME)
 
         # Jockey spawn logic
         jockey_spawn_timer += dt
         if jockey_spawn_timer >= jockey_spawn_interval:
             if random.uniform(0, 100) < jockey_spawn_chance:
-                pygame.mixer.Sound(SFX_CHICKEN_JOCKEY).set_volume(SFX_VOLUME)
-                pygame.mixer.Sound(SFX_CHICKEN_JOCKEY).play()
+                play_sound(SFX_CHICKEN_JOCKEY, SFX_VOLUME)
                 jockey_group.add(ChickenJockey())
                 jockey_spawn_timer = 0
                 jockey_spawn_interval = random.uniform(10, 20)
@@ -803,7 +756,6 @@ def game_loop(screen):
                 jockey_spawn_timer = 0
                 jockey_spawn_interval = random.uniform(10, 20)
 
-        # Spawn chickens based on timer
         chicken_spawn_timer += dt
         if chicken_spawn_timer >= spawn_interval:
             chicken_spawn_timer = 0
@@ -908,12 +860,10 @@ def game_loop(screen):
         if frenzy_cooldown > 0:
             frenzy_cooldown -= dt
 
-        # Check for Steve dropping catch logic
         if steve.is_dropping:
             if catcher.rect.colliderect(steve.rect):
                 if catcher.equipped == "water":
-                    pygame.mixer.Sound(SFX_STEVE_CATCH).set_volume(SFX_VOLUME)
-                    pygame.mixer.Sound(SFX_STEVE_CATCH).play()
+                    play_sound(SFX_STEVE_CATCH, SFX_VOLUME)
                     score += int(100 * frenzy_multi * steve_multi)
                     steve_multi = 5.0
                     steve_multiplier_timer = 30
@@ -931,7 +881,6 @@ def game_loop(screen):
                 lives -= 1
                 steve.reset_after_drop()
 
-        # Check collisions and ground condition for Chicken Jockey
         for jockey in jockey_group:
             if jockey.rect.top >= SCREEN_HEIGHT:
                 lives -= 3
@@ -952,7 +901,6 @@ def game_loop(screen):
                     score_feed.append(("+500 (Jockey Killed)", pygame.time.get_ticks()))
                     jockey.kill()
 
-        # If Steve multiplier timer is active, count down
         if steve_multiplier_timer > 0:
             steve_multiplier_timer -= dt
         else:
