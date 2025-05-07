@@ -4,8 +4,29 @@ import random
 
 # Initialize Pygame
 pygame.init()
-pygame.mixer.init()
-pygame.display.set_caption("Minecraft Catcher v1.2")
+try:
+    pygame.mixer.init()
+    AUDIO_ENABLED = True
+except pygame.error:
+    print("Audio initialization failed. Continuing without sound.")
+    AUDIO_ENABLED = False
+
+pygame.display.set_caption("Minecraft Catcher v2.0")
+
+# Define default volumes globally
+MUSIC_VOLUME = 0.1
+SFX_VOLUME = 1
+
+if AUDIO_ENABLED:
+    pygame.mixer.music.set_volume(MUSIC_VOLUME)
+
+# Load custom font
+try:
+    CUSTOM_FONT = "./font/Minecraft.ttf"
+    FONT = lambda size: pygame.font.Font(CUSTOM_FONT, size)
+except FileNotFoundError:
+    print("Custom font not found. Falling back to default font.")
+    FONT = lambda size: pygame.font.SysFont(None, size)
 
 # ----------------------------
 # VARIABLES FOR ASSETS & CONFIG
@@ -43,6 +64,31 @@ DIAMOND_SWORD_ICON_GRAY = pygame.image.load("./img/Diamond Sword-Grayscale.png")
 ENDER_PEARL_ICON = pygame.image.load("./img/Ender-Pearl.png")
 ENDER_PEARL_ICON_GRAY = pygame.image.load("./img/Ender-Pearl-Grayscale.png")
 LUCKY_BLOCK = pygame.image.load("./img/Lucky-Block.png")
+MAIN_MENU_BG = pygame.image.load("./img/Main_MenuBG.jpg")
+
+# Splash text options
+SPLASH_TEXTS = [
+    "Catch 'em all!",
+    "Steve's adventure awaits!",
+    "Buckets of fun!",
+    "Don't miss the chickens!",
+    "Minecraft-inspired madness!",
+    "Clucking good time!",
+    "Chicken dinner winner!",
+    "Steve needs help!",
+    "Falling with style!",
+    "Lava or water?",
+    "Catch or perish!",
+    "Bucket Brigade Champion!",
+    "Crafting chicken catchers!",
+    "Mob catching madness!",
+    "Diamonds are forever!",
+    "Actually just chickens!",
+    "Ender pearls ready!",
+    "Watch for jockeys!",
+    "Frenzy mode activated!",
+    "High score hunter!"
+]
 
 # Asset sizes
 STEVE_SIZE = (100, 100)
@@ -63,9 +109,6 @@ WHITE = (255, 255, 255)
 BLACK = (0, 0, 0)
 BG_COLOR = (50, 150, 50)
 
-MUSIC_VOLUME = 0.1
-SFX_VOLUME = 1
-pygame.mixer.music.set_volume(MUSIC_VOLUME)
 LAVA_BUCKET_COLLISION_SIZE = (50, 50)
 WATER_BUCKET_COLLISION_SIZE = (50, 50)
 
@@ -108,9 +151,10 @@ KEYBINDS = {
 
 
 def play_sound(path, volume=1.0):
-    s = pygame.mixer.Sound(path)
-    s.set_volume(volume)
-    s.play()
+    if AUDIO_ENABLED:
+        s = pygame.mixer.Sound(path)
+        s.set_volume(volume)
+        s.play()
 
 
 # Catcher class to represent the player
@@ -297,7 +341,7 @@ def draw_ui(
     steve_multiplier_timer,
     catcher,
 ):
-    font = pygame.font.SysFont(None, 30)
+    font = FONT(30)
     score_text = font.render(f"Score: {score}", True, WHITE)
     screen.blit(score_text, (10, 10))
     active_effects = []
@@ -309,7 +353,7 @@ def draw_ui(
         active_effects.append(f"x{PERFECT_CHICKEN_MULTIPLIER:.1f}")
 
     active_effects_text = "Active Effects: " + ", ".join(active_effects)
-    effects_font = pygame.font.SysFont(None, 30)
+    effects_font = FONT(30)
     effects_render = effects_font.render(active_effects_text, True, WHITE)
     screen.blit(effects_render, (10, 40))
     feed_y = 100
@@ -342,7 +386,7 @@ def draw_ui(
         screen, (255, 0, 0), (bar_x, bar_y, inner_width, frenzy_bar_height)
     )
 
-    counter_font = pygame.font.SysFont(None, 30)
+    counter_font = FONT(30)
     counter_render = counter_font.render(counter_text, True, WHITE)
     screen.blit(counter_render, (bar_x + frenzy_bar_width + 10, bar_y))
 
@@ -406,11 +450,24 @@ def draw_ui(
 def main_menu(screen):
     global SFX_VOLUME, KEYBINDS
     clock = pygame.time.Clock()
-    font = pygame.font.SysFont(None, 60)
-    small_font = pygame.font.SysFont(None, 30)
+    font = FONT(60)
+    small_font = FONT(30)
+    splash_base_font_size = 20  # Base size for splash text
+    splash_font = lambda size: FONT(size)
 
-    pygame.mixer.music.load(MUSIC_MAIN_MENU)
-    pygame.mixer.music.play(-1)
+    if AUDIO_ENABLED:
+        pygame.mixer.music.load(MUSIC_MAIN_MENU)
+        pygame.mixer.music.play(-1)
+
+    # Random splash text
+    splash_text = random.choice(SPLASH_TEXTS)
+
+    # Scale the background image proportionally
+    bg_width, bg_height = MAIN_MENU_BG.get_size()
+    scale_factor = max(SCREEN_WIDTH / bg_width, SCREEN_HEIGHT / bg_height)
+    scaled_bg = pygame.transform.scale(
+        MAIN_MENU_BG, (int(bg_width * scale_factor), int(bg_height * scale_factor))
+    )
 
     play_button = pygame.Rect(SCREEN_WIDTH // 2 - 100, SCREEN_HEIGHT // 2, 200, 50)
     info_button = pygame.Rect(SCREEN_WIDTH // 2 - 100, SCREEN_HEIGHT // 2 + 70, 200, 50)
@@ -452,11 +509,34 @@ def main_menu(screen):
     sfx_volume = SFX_VOLUME
     active_keybind = None
 
+    # Variables for splash text pulsing animation
+    pulse_direction = 0.5  # 1 for growing, -1 for shrinking
+    pulse_speed = 0.3  # Speed of pulsing
+    splash_font_size = splash_base_font_size
+
     while True:
-        screen.fill(BG_COLOR)
+        screen.blit(scaled_bg, (0, 0))
+
+        # Title
         title_text = font.render("Minecraft Catcher", True, WHITE)
         screen.blit(title_text, (SCREEN_WIDTH // 2 - title_text.get_width() // 2, 100))
 
+        # Splash text with pulsing animation
+        splash_font_size += pulse_direction * pulse_speed
+        if splash_font_size >= splash_base_font_size + 5:
+            pulse_direction = -1
+        elif splash_font_size <= splash_base_font_size:
+            pulse_direction = 1
+
+        splash_render = splash_font(int(splash_font_size)).render(
+            splash_text, True, (255, 255, 0)
+        )
+        splash_render = pygame.transform.rotate(splash_render, 40)  # Tilted text
+        splash_x = SCREEN_WIDTH // 2 + title_text.get_width() // 2 - 105
+        splash_y = 70
+        screen.blit(splash_render, (splash_x, splash_y))
+
+        # Buttons
         pygame.draw.rect(screen, BLACK, play_button)
         play_text = small_font.render("Play", True, WHITE)
         screen.blit(
@@ -517,11 +597,11 @@ def main_menu(screen):
                         show_settings = False
                         active_keybind = None
                         scroll_offset = 0
-                    elif music_slider.collidepoint(event.pos):
+                    elif AUDIO_ENABLED and music_slider.collidepoint(event.pos):
                         music_volume = (event.pos[0] - music_slider.x) / slider_width
                         music_volume = max(0.0, min(1.0, music_volume))
                         pygame.mixer.music.set_volume(music_volume)
-                    elif sfx_slider.collidepoint(event.pos):
+                    elif AUDIO_ENABLED and sfx_slider.collidepoint(event.pos):
                         sfx_volume = (event.pos[0] - sfx_slider.x) / slider_width
                         sfx_volume = max(0.0, min(1.0, sfx_volume))
                         SFX_VOLUME = sfx_volume
@@ -559,17 +639,25 @@ def main_menu(screen):
             keybinds_label = small_font.render("Keybinds", True, WHITE)
             screen.blit(keybinds_label, (settings_margin + 50, 310))
 
-            pygame.draw.rect(screen, WHITE, music_slider)
-            music_knob_x = music_slider.x + int(music_volume * slider_width)
-            pygame.draw.circle(screen, BLACK, (music_knob_x, music_slider.centery), 10)
-            music_text = small_font.render("Music Volume", True, WHITE)
-            screen.blit(music_text, (settings_margin + 50, music_slider.y - 20))
+            if AUDIO_ENABLED:
+                pygame.draw.rect(screen, WHITE, music_slider)
+                music_knob_x = music_slider.x + int(music_volume * slider_width)
+                pygame.draw.circle(
+                    screen, BLACK, (music_knob_x, music_slider.centery), 10
+                )
+                music_text = small_font.render("Music Volume", True, WHITE)
+                screen.blit(music_text, (settings_margin + 50, music_slider.y - 20))
 
-            pygame.draw.rect(screen, WHITE, sfx_slider)
-            sfx_knob_x = sfx_slider.x + int(sfx_volume * slider_width)
-            pygame.draw.circle(screen, BLACK, (sfx_knob_x, sfx_slider.centery), 10)
-            sfx_text = small_font.render("SFX Volume", True, WHITE)
-            screen.blit(sfx_text, (settings_margin + 50, sfx_slider.y - 20))
+                pygame.draw.rect(screen, WHITE, sfx_slider)
+                sfx_knob_x = sfx_slider.x + int(sfx_volume * slider_width)
+                pygame.draw.circle(screen, BLACK, (sfx_knob_x, sfx_slider.centery), 10)
+                sfx_text = small_font.render("SFX Volume", True, WHITE)
+                screen.blit(sfx_text, (settings_margin + 50, sfx_slider.y - 20))
+            else:
+                audio_disabled_text = small_font.render(
+                    "Audio is disabled", True, WHITE
+                )
+                screen.blit(audio_disabled_text, (settings_margin + 50, 150))
 
             for action, rect in keybinds_rects.items():
                 action_text = small_font.render(keybind_labels[action], True, WHITE)
@@ -598,8 +686,8 @@ def main_menu(screen):
             instructions_surf.fill((30, 30, 30))
             screen.blit(instructions_surf, (50, 50))
 
-            instructions_font = pygame.font.SysFont(None, 30)
-            instructions_title_font = pygame.font.SysFont(None, 40, bold=True)
+            instructions_font = FONT(30)
+            instructions_title_font = FONT(40)
 
             # Title
             title_text = instructions_title_font.render("How to Play", True, WHITE)
@@ -670,8 +758,9 @@ def main_menu(screen):
 # ----------------------------
 def game_loop(screen):
     clock = pygame.time.Clock()
-    pygame.mixer.music.load(MUSIC_PLAYING)
-    pygame.mixer.music.play(-1)
+    if AUDIO_ENABLED:
+        pygame.mixer.music.load(MUSIC_PLAYING)
+        pygame.mixer.music.play(-1)
 
     catcher = Catcher()
     catcher_group = pygame.sprite.GroupSingle(catcher)
@@ -843,8 +932,9 @@ def game_loop(screen):
             frenzy_timer = 20
             frenzy_multi = 5.0
             frenzy_chicken_count = 0
-            pygame.mixer.music.load(MUSIC_FRENZY)
-            pygame.mixer.music.play(-1)
+            if AUDIO_ENABLED:
+                pygame.mixer.music.load(MUSIC_FRENZY)
+                pygame.mixer.music.play(-1)
             streak = 0
 
         if frenzy_active:
@@ -854,8 +944,9 @@ def game_loop(screen):
                 frenzy_active = False
                 frenzy_cooldown = 60
                 frenzy_multi = 1.0
-                pygame.mixer.music.load(MUSIC_PLAYING)
-                pygame.mixer.music.play(-1)
+                if AUDIO_ENABLED:
+                    pygame.mixer.music.load(MUSIC_PLAYING)
+                    pygame.mixer.music.play(-1)
 
         if frenzy_cooldown > 0:
             frenzy_cooldown -= dt
@@ -942,8 +1033,8 @@ def game_loop(screen):
 
 def end_screen(screen, score):
     clock = pygame.time.Clock()
-    font = pygame.font.SysFont(None, 60)
-    small_font = pygame.font.SysFont(None, 30)
+    font = FONT(60)
+    small_font = FONT(30)
     button_rect = pygame.Rect(SCREEN_WIDTH // 2 - 100, SCREEN_HEIGHT // 2 + 50, 200, 50)
     while True:
         screen.fill(BG_COLOR)
