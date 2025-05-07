@@ -510,7 +510,7 @@ def main_menu(screen):
     active_keybind = None
 
     # Variables for splash text pulsing animation
-    pulse_direction = 0.5  # 1 for growing, -1 for shrinking
+    pulse_direction = 2  # 1 for growing, -1 for shrinking
     pulse_speed = 0.3  # Speed of pulsing
     splash_font_size = splash_base_font_size
 
@@ -532,8 +532,8 @@ def main_menu(screen):
             splash_text, True, (255, 255, 0)
         )
         splash_render = pygame.transform.rotate(splash_render, 40)  # Tilted text
-        splash_x = SCREEN_WIDTH // 2 + title_text.get_width() // 2 - 105
-        splash_y = 70
+        splash_x = SCREEN_WIDTH // 2 + title_text.get_width() // 2 - 100
+        splash_y = 65
         screen.blit(splash_render, (splash_x, splash_y))
 
         # Buttons
