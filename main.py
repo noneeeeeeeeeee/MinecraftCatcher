@@ -165,37 +165,42 @@ ability_timer = 0.0
 
 
 def play_sound(path, volume=1.0):
+    # Plays a sound effect from the given file path at the specified volume.
+    # Checks if audio is enabled before attempting to play the sound.
     if AUDIO_ENABLED:
-        s = pygame.mixer.Sound(path)
-        s.set_volume(volume)
-        s.play()
+        s = pygame.mixer.Sound(path)  # Load the sound file.
+        s.set_volume(volume)  # Set the volume for the sound.
+        s.play()  # Play the sound.
 
 
 # Catcher class to represent the player
 class Catcher(pygame.sprite.Sprite):
     def __init__(self):
+        # Initializes the Catcher object, representing the player-controlled bucket.
+        # Sets the default bucket to "lava" and initializes movement and sprinting attributes.
         super().__init__()
-        self.equipped = "lava"
-        self.image = pygame.transform.scale(IMAGE_LAVA_BUCKET, LAVA_BUCKET_SIZE)
-        self.rect = self.image.get_rect(
-            midbottom=(SCREEN_WIDTH // 2, SCREEN_HEIGHT - 10)
-        )
-        self.switch_cooldown = 0
-        self.sprint_timer = 8.0
-        self.sprinting = False
-        self.sprint_refill_delay = 0
+        self.equipped = "lava"  # Default bucket type.
+        self.image = pygame.transform.scale(IMAGE_LAVA_BUCKET, LAVA_BUCKET_SIZE)  # Bucket image.
+        self.rect = self.image.get_rect(midbottom=(SCREEN_WIDTH // 2, SCREEN_HEIGHT - 10))  # Position on screen.
+        self.switch_cooldown = 0  # Cooldown timer for switching buckets.
+        self.sprint_timer = 8.0  # Sprint stamina timer.
+        self.sprinting = False  # Whether the player is sprinting.
+        self.sprint_refill_delay = 0  # Delay before stamina starts refilling.
 
     def update(self, dt):
-        base_speed = 200
-        sprint_speed = base_speed * 2.5
-        speed = sprint_speed if self.sprinting else base_speed
+        # Updates the Catcher's position, sprinting state, and bucket image based on player input.
+        base_speed = 200  # Normal movement speed.
+        sprint_speed = base_speed * 2.5  # Sprinting speed.
+        speed = sprint_speed if self.sprinting else base_speed  # Determine current speed.
 
-        keys = pygame.key.get_pressed()
+        keys = pygame.key.get_pressed()  # Get the current state of keyboard keys.
         if keys[pygame.K_LSHIFT] and self.sprint_timer > 0:
+            # Sprinting logic: reduce stamina while sprinting.
             self.sprinting = True
             self.sprint_timer -= dt
             self.sprint_refill_delay = 0
         else:
+            # Stop sprinting and refill stamina over time.
             self.sprinting = False
             if self.sprint_timer <= 0:
                 self.sprint_refill_delay += dt
@@ -206,19 +211,23 @@ class Catcher(pygame.sprite.Sprite):
                 if self.sprint_refill_delay >= 0.2:
                     self.sprint_timer = min(self.sprint_timer + dt * 1.5, 5.0)
 
+        # Movement logic: move left or right based on key input.
         if keys[KEYBINDS["left"]]:
             self.rect.x -= speed * dt
         if keys[KEYBINDS["right"]]:
             self.rect.x += speed * dt
 
+        # Prevent the Catcher from moving outside the screen boundaries.
         if self.rect.left < 0:
             self.rect.left = 0
         if self.rect.right > SCREEN_WIDTH:
             self.rect.right = SCREEN_WIDTH
 
+        # Handle bucket switching cooldown.
         if self.switch_cooldown > 0:
             self.switch_cooldown -= dt
 
+        # Update the bucket image based on the equipped bucket type.
         if self.equipped == "lava":
             self.image = pygame.transform.scale(IMAGE_LAVA_BUCKET, LAVA_BUCKET_SIZE)
             self.rect.size = LAVA_BUCKET_COLLISION_SIZE
@@ -229,28 +238,29 @@ class Catcher(pygame.sprite.Sprite):
             self.image = pygame.transform.scale(DIAMOND_SWORD_ICON, DIAMOND_SWORD_SIZE)
 
     def switch_bucket(self):
+        # Switches between "lava" and "water" buckets, with a cooldown to prevent rapid switching.
         if self.switch_cooldown <= 0:
             if self.equipped == "lava":
                 self.equipped = "water"
-                play_sound(SFX_WATER_BUCKET, SFX_VOLUME)
+                play_sound(SFX_WATER_BUCKET, SFX_VOLUME)  # Play water bucket sound.
             else:
                 self.equipped = "lava"
-                play_sound(SFX_LAVA_BUCKET, SFX_VOLUME)
-            self.switch_cooldown = 0.5
+                play_sound(SFX_LAVA_BUCKET, SFX_VOLUME)  # Play lava bucket sound.
+            self.switch_cooldown = 0.5  # Set cooldown duration.
 
 
 # Falling object – can be a chicken drop
 class Chicken(pygame.sprite.Sprite):
     def __init__(self):
+        # Initializes a falling chicken object with random position and speed.
         super().__init__()
-        self.image = pygame.transform.scale(IMAGE_CHICKEN, CHICKEN_SIZE)
-        self.rect = self.image.get_rect(
-            midtop=(random.randint(50, SCREEN_WIDTH - 50), -50)
-        )
-        self.base_speed = 200
-        self.speed = self.base_speed * (1.5 if random.uniform(0, 1) < 0.2 else 1)
+        self.image = pygame.transform.scale(IMAGE_CHICKEN, CHICKEN_SIZE)  # Chicken image.
+        self.rect = self.image.get_rect(midtop=(random.randint(50, SCREEN_WIDTH - 50), -50))  # Random spawn position.
+        self.base_speed = 200  # Base falling speed.
+        self.speed = self.base_speed * (1.5 if random.uniform(0, 1) < 0.2 else 1)  # Random speed multiplier.
 
     def update(self, dt):
+        # Updates the chicken's position, making it fall down the screen.
         self.rect.y += self.speed * dt
 
 
@@ -287,18 +297,21 @@ class ChickenJockey(pygame.sprite.Sprite):
 # Steve character
 class Steve(pygame.sprite.Sprite):
     def __init__(self):
+        # Initializes the Steve character, which moves horizontally and occasionally drops.
         super().__init__()
-        self.image = pygame.transform.scale(IMAGE_STEVE_STANDING, STEVE_SIZE)
-        self.rect = self.image.get_rect(midtop=(SCREEN_WIDTH // 2, 10))
-        self.direction = 1
-        self.move_speed = random.uniform(140, 200)
-        self.drop_chance = 5
-        self.talk_timer = random.uniform(15, 30)
-        self.drop_timer = random.uniform(10, 15)  #
-        self.is_dropping = False
+        self.image = pygame.transform.scale(IMAGE_STEVE_STANDING, STEVE_SIZE)  # Steve's standing image.
+        self.rect = self.image.get_rect(midtop=(SCREEN_WIDTH // 2, 10))  # Initial position.
+        self.direction = 1  # Movement direction (1 = right, -1 = left).
+        self.move_speed = random.uniform(140, 200)  # Random horizontal speed.
+        self.drop_chance = 5  # Initial chance of dropping.
+        self.talk_timer = random.uniform(15, 30)  # Timer for Steve to "talk."
+        self.drop_timer = random.uniform(10, 15)  # Timer for Steve to drop.
+        self.is_dropping = False  # Whether Steve is currently dropping.
 
     def update(self, dt):
+        # Updates Steve's position, drop logic, and "talking" behavior.
         if not self.is_dropping:
+            # Move horizontally and bounce off screen edges.
             self.rect.x += self.direction * self.move_speed * dt
             if self.rect.left < 0:
                 self.rect.left = 0
@@ -307,34 +320,38 @@ class Steve(pygame.sprite.Sprite):
                 self.rect.right = SCREEN_WIDTH
                 self.direction = -1
 
+            # Handle "talking" timer.
             self.talk_timer -= dt
             if self.talk_timer <= 0:
-                play_sound(SFX_I_AM_STEVE, SFX_VOLUME)
-                self.drop_chance += 30
-                self.talk_timer = random.uniform(15, 30)
+                play_sound(SFX_I_AM_STEVE, SFX_VOLUME)  # Play Steve's voice line.
+                self.drop_chance += 30  # Increase drop chance.
+                self.talk_timer = random.uniform(15, 30)  # Reset timer.
 
-            # Count down the drop timer
+            # Handle drop timer.
             self.drop_timer -= dt
             if self.drop_timer <= 0:
-                roll = random.uniform(0, 100)
+                roll = random.uniform(0, 100)  # Random chance roll.
                 if roll < self.drop_chance:
-                    self.drop()
+                    self.drop()  # Trigger drop.
                 else:
-                    self.drop_chance += 15
-                self.drop_timer = random.uniform(10, 15)
+                    self.drop_chance += 15  # Increase drop chance.
+                self.drop_timer = random.uniform(10, 15)  # Reset timer.
         else:
+            # If Steve is dropping, move him downward.
             self.rect.y += self.move_speed * random.uniform(1.4, 2.0) * dt
 
     def drop(self):
+        # Initiates Steve's dropping behavior.
         self.is_dropping = True
-        self.image = pygame.transform.scale(IMAGE_STEVE_FALLING, STEVE_SIZE)
-        play_sound(SFX_STEVE_DROPPING, SFX_VOLUME)
+        self.image = pygame.transform.scale(IMAGE_STEVE_FALLING, STEVE_SIZE)  # Change to falling image.
+        play_sound(SFX_STEVE_DROPPING, SFX_VOLUME)  # Play dropping sound.
 
     def reset_after_drop(self):
+        # Resets Steve's state after he has dropped.
         self.is_dropping = False
-        self.image = pygame.transform.scale(IMAGE_STEVE_STANDING, STEVE_SIZE)
-        self.rect.y = 10
-        self.drop_chance = 5
+        self.image = pygame.transform.scale(IMAGE_STEVE_STANDING, STEVE_SIZE)  # Reset to standing image.
+        self.rect.y = 10  # Reset position.
+        self.drop_chance = 5  # Reset drop chance.
 
 
 # Lucky block sprite
@@ -369,9 +386,30 @@ def draw_ui(
     steve_multiplier_timer,
     catcher,
 ):
-    font = FONT(30)
+    """
+    Draws the game's user interface (UI) elements on the screen.
+
+    Parameters:
+    - screen: The Pygame surface where the UI will be drawn.
+    - score: The player's current score.
+    - lives: The player's remaining lives.
+    - frenzy_multi: The current frenzy multiplier.
+    - steve_multi: The current multiplier for catching Steve.
+    - frenzy_active: Boolean indicating if frenzy mode is active.
+    - frenzy_timer: Remaining time for frenzy mode.
+    - frenzy_cooldown: Cooldown time before frenzy can be activated again.
+    - streak: Current streak of successful catches.
+    - frenzy_chicken_count: Number of chickens caught during frenzy mode.
+    - steve_multiplier_timer: Remaining time for Steve's multiplier effect.
+    - catcher: The Catcher object, used to display sprint-related UI.
+    """
+    font = FONT(30)  # Font for rendering text.
+    
+    # Display the current score.
     score_text = font.render(f"Score: {score}", True, WHITE)
     screen.blit(score_text, (10, 10))
+
+    # Display active effects (e.g., multipliers).
     active_effects = []
     if steve_multiplier_timer > 0:
         active_effects.append(f"x{steve_multi:.1f} ({int(steve_multiplier_timer)}s)")
@@ -384,95 +422,83 @@ def draw_ui(
     effects_font = FONT(30)
     effects_render = effects_font.render(active_effects_text, True, WHITE)
     screen.blit(effects_render, (10, 40))
+
+    # Display the score feed (recent score changes).
     feed_y = 100
     current_time = pygame.time.get_ticks()
     global score_feed
-    score_feed = [feed for feed in score_feed if current_time - feed[1] < 1000]
-    for feed, _ in score_feed[-5:]:
+    score_feed = [feed for feed in score_feed if current_time - feed[1] < 1000]  # Keep only recent entries.
+    for feed, _ in score_feed[-5:]:  # Display the last 5 entries.
         feed_text = font.render(feed, True, WHITE)
         screen.blit(feed_text, (10, feed_y))
         feed_y += 20
+
+    # Draw the frenzy bar (progress or cooldown).
     frenzy_bar_width = 200
     frenzy_bar_height = 20
     bar_x = SCREEN_WIDTH - frenzy_bar_width - 30
     bar_y = 10
-    pygame.draw.rect(
-        screen, WHITE, (bar_x, bar_y, frenzy_bar_width, frenzy_bar_height), 2
-    )
+    pygame.draw.rect(screen, WHITE, (bar_x, bar_y, frenzy_bar_width, frenzy_bar_height), 2)  # Bar outline.
 
     if frenzy_active:
+        # Show remaining frenzy time as a red bar.
         inner_width = int(frenzy_bar_width * (frenzy_timer / 20))
         counter_text = f"{int(frenzy_timer)}s"
     elif frenzy_cooldown > 0:
+        # Show cooldown progress as a red bar.
         inner_width = int(frenzy_bar_width * (1 - frenzy_cooldown / 60))
         counter_text = f"{int(frenzy_cooldown)}s"
     else:
+        # Show streak progress toward activating frenzy.
         inner_width = int(frenzy_bar_width * min(streak / FRENZY_ACTIVATE_STREAK, 1.0))
         counter_text = f"{streak}"
 
-    pygame.draw.rect(
-        screen, (255, 0, 0), (bar_x, bar_y, inner_width, frenzy_bar_height)
-    )
+    pygame.draw.rect(screen, (255, 0, 0), (bar_x, bar_y, inner_width, frenzy_bar_height))  # Fill the bar.
 
+    # Display the counter text next to the frenzy bar.
     counter_font = FONT(30)
     counter_render = counter_font.render(counter_text, True, WHITE)
     screen.blit(counter_render, (bar_x + frenzy_bar_width + 10, bar_y))
 
+    # Display the player's remaining lives.
     lives_text = font.render(f"Lives: {lives}", True, WHITE)
     screen.blit(lives_text, (SCREEN_WIDTH - 150, bar_y + frenzy_bar_height + 10))
 
+    # Draw the sprint bar (stamina).
     sprint_bar_width = 200
     sprint_bar_height = 20
     sprint_bar_x = SCREEN_WIDTH - sprint_bar_width - 10
     sprint_bar_y = SCREEN_HEIGHT - sprint_bar_height - 10
-    pygame.draw.rect(
-        screen,
-        WHITE,
-        (sprint_bar_x, sprint_bar_y, sprint_bar_width, sprint_bar_height),
-        2,
-    )
+    pygame.draw.rect(screen, WHITE, (sprint_bar_x, sprint_bar_y, sprint_bar_width, sprint_bar_height), 2)  # Outline.
 
+    # Fill the sprint bar based on the Catcher's remaining stamina.
     sprint_inner_width = int(sprint_bar_width * (catcher.sprint_timer / 5.0))
-    pygame.draw.rect(
-        screen,
-        (0, 0, 255),
-        (sprint_bar_x, sprint_bar_y, sprint_inner_width, sprint_bar_height),
-    )
+    pygame.draw.rect(screen, (0, 0, 255), (sprint_bar_x, sprint_bar_y, sprint_inner_width, sprint_bar_height))
 
+    # Display the Diamond Sword icon and cooldown.
     scaled_icon = pygame.transform.scale(DIAMOND_SWORD_ICON, DIAMOND_SWORD_STATUS_SIZE)
-    scaled_icon_gray = pygame.transform.scale(
-        DIAMOND_SWORD_ICON_GRAY, DIAMOND_SWORD_STATUS_SIZE
-    )
+    scaled_icon_gray = pygame.transform.scale(DIAMOND_SWORD_ICON_GRAY, DIAMOND_SWORD_STATUS_SIZE)
     icon_pos = (10, SCREEN_HEIGHT - DIAMOND_SWORD_STATUS_SIZE[1] - 10)
     if diamond_sword_cooldown <= 0 and diamond_sword_timer <= 0:
-        screen.blit(scaled_icon, icon_pos)
+        screen.blit(scaled_icon, icon_pos)  # Active icon.
     else:
-        screen.blit(scaled_icon_gray, icon_pos)
-        cd = (
-            int(diamond_sword_cooldown)
-            if diamond_sword_cooldown > 0
-            else int(diamond_sword_timer)
-        )
+        screen.blit(scaled_icon_gray, icon_pos)  # Grayed-out icon.
+        cd = int(diamond_sword_cooldown) if diamond_sword_cooldown > 0 else int(diamond_sword_timer)
         cd_text = counter_font.render(f"{cd}s", True, WHITE)
-        screen.blit(
-            cd_text, (icon_pos[0] + DIAMOND_SWORD_STATUS_SIZE[0] + 5, icon_pos[1])
-        )
+        screen.blit(cd_text, (icon_pos[0] + DIAMOND_SWORD_STATUS_SIZE[0] + 5, icon_pos[1]))
 
+    # Display the Ender Pearl icon and cooldown.
     ender_icon_pos = (icon_pos[0] + ENDER_PEARL_STATUS_SIZE[0] + 15, icon_pos[1])
     if ender_pearl_timer <= 0:
         ender_icon = pygame.transform.scale(ENDER_PEARL_ICON, ENDER_PEARL_STATUS_SIZE)
-        screen.blit(ender_icon, ender_icon_pos)
+        screen.blit(ender_icon, ender_icon_pos)  # Active icon.
     else:
-        ender_icon_gray = pygame.transform.scale(
-            ENDER_PEARL_ICON_GRAY, ENDER_PEARL_STATUS_SIZE
-        )
-        screen.blit(ender_icon_gray, ender_icon_pos)
+        ender_icon_gray = pygame.transform.scale(ENDER_PEARL_ICON_GRAY, ENDER_PEARL_STATUS_SIZE)
+        screen.blit(ender_icon_gray, ender_icon_pos)  # Grayed-out icon.
         cd_text2 = counter_font.render(f"{int(ender_pearl_timer)}s", True, WHITE)
-        screen.blit(
-            cd_text2,
-            (ender_icon_pos[0] + ENDER_PEARL_STATUS_SIZE[0] + 5, ender_icon_pos[1]),
-        )
+        screen.blit(cd_text2, (ender_icon_pos[0] + ENDER_PEARL_STATUS_SIZE[0] + 5, ender_icon_pos[1]))
 
+    # Display the active ability icon and timer (if any).
     if active_ability:
         iconsize = 35
         if active_ability == "boots":
@@ -483,14 +509,15 @@ def draw_ui(
             icon = pygame.transform.scale(IMAGE_ELYTRA, (iconsize, iconsize))
         xpos = SCREEN_WIDTH - 150
         ypos = 70
-        screen.blit(icon, (xpos, ypos))
+        screen.blit(icon, (xpos, ypos))  # Display the ability icon.
         timer_text = FONT(20).render(f"{int(ability_timer)}s", True, WHITE)
-        screen.blit(timer_text, (xpos + iconsize + 5, ypos))
+        screen.blit(timer_text, (xpos + iconsize + 5, ypos))  # Display the remaining time for the ability.
 
 
 # Main menu screen
 def main_menu(screen):
-    global SFX_VOLUME, KEYBINDS
+    # Displays the main menu, allowing the player to start the game, view instructions, or adjust settings.
+    # Handles button interactions and settings adjustments.
     clock = pygame.time.Clock()
     font = FONT(60)
     small_font = FONT(30)
@@ -801,6 +828,8 @@ def main_menu(screen):
 # MAIN GAME LOOP
 # ----------------------------
 def game_loop(screen):
+    # The main game loop where gameplay occurs.
+    # Handles spawning, collisions, scoring, and updating all game objects.
     clock = pygame.time.Clock()
     if AUDIO_ENABLED:
         pygame.mixer.music.load(MUSIC_PLAYING)
@@ -1150,6 +1179,8 @@ def game_loop(screen):
 
 
 def end_screen(screen, score):
+    # Displays the game over screen with the player's final score.
+    # Allows the player to return to the main menu.
     clock = pygame.time.Clock()
     font = FONT(60)
     small_font = FONT(30)
@@ -1190,6 +1221,7 @@ def end_screen(screen, score):
 
 
 def reset_globals():
+    # Resets global variables to their initial states for a new game session.
     global diamond_sword_timer, diamond_sword_cooldown, PERFECT_CHICKEN_STREAK, PERFECT_CHICKEN_MULTIPLIER, score_feed, ender_pearl_timer, active_ability, ability_timer
     diamond_sword_timer = 0
     diamond_sword_cooldown = 0
@@ -1205,6 +1237,7 @@ def reset_globals():
 # MAIN FUNCTION
 # ----------------------------
 def main():
+    # The main function that initializes the game and manages the transition between the main menu and game loop.
     screen = pygame.display.set_mode((SCREEN_WIDTH, SCREEN_HEIGHT))
     while True:
         main_menu(screen)
