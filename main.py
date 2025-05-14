@@ -345,7 +345,7 @@ class LuckyBlock(pygame.sprite.Sprite):
         self.rect = self.image.get_rect(
             midtop=(random.randint(50, SCREEN_WIDTH - 50), -50)
         )
-        self.speed = random.randint(200, 500)
+        self.speed = random.randint(300, 800)
 
     def update(self, dt):
         self.rect.y += self.speed * dt
@@ -407,7 +407,7 @@ def draw_ui(
         inner_width = int(frenzy_bar_width * (1 - frenzy_cooldown / 60))
         counter_text = f"{int(frenzy_cooldown)}s"
     else:
-        inner_width = int(frenzy_bar_width * min(streak / 25, 1.0))
+        inner_width = int(frenzy_bar_width * min(streak / FRENZY_ACTIVATE_STREAK, 1.0))
         counter_text = f"{streak}"
 
     pygame.draw.rect(
@@ -552,8 +552,8 @@ def main_menu(screen):
     active_keybind = None
 
     # Variables for splash text pulsing animation
-    pulse_direction = 2  # 1 for growing, -1 for shrinking
-    pulse_speed = 0.3  # Speed of pulsing
+    pulse_direction = 2 
+    pulse_speed = 0.3  
     splash_font_size = splash_base_font_size
 
     while True:
@@ -920,11 +920,19 @@ def game_loop(screen):
                 else:
                     chicken_group.add(Chicken())
             else:
-                for _ in range(10):
+                # During frenzy, spawn chickens with varied speeds
+                for _ in range(random.randint(15, 500)):
+                    speed_multiplier = random.uniform(0.8, 3) 
+                    
                     if random.random() < PERFECT_CHICKEN_SPAWN_CHANCE:
-                        chicken_group.add(CookedChicken())
+                        chicken = CookedChicken()
+                        chicken.speed = chicken.base_speed * speed_multiplier
                     else:
-                        chicken_group.add(Chicken())
+                        chicken = Chicken()
+                        chicken.speed = chicken.base_speed * speed_multiplier
+                    
+                    chicken.rect.x = random.randint(20, SCREEN_WIDTH - 70)
+                    chicken_group.add(chicken)
 
         catcher_group.update(dt)
         chicken_group.update(dt)
@@ -935,7 +943,6 @@ def game_loop(screen):
         # Collision: Lucky Block catch
         for lb in lucky_group:
             if catcher.rect.colliderect(lb.rect):
-                # Claim ability
                 choice = random.choice(["boots", "tnt", "elytra"])
                 active_ability = choice
                 if choice == "boots":
