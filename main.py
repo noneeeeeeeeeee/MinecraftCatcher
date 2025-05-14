@@ -11,7 +11,7 @@ except pygame.error:
     print("Audio initialization failed. Continuing without sound.")
     AUDIO_ENABLED = False
 
-pygame.display.set_caption("Minecraft Catcher v2.0")
+pygame.display.set_caption("Minecraft Catcher v3.0")
 
 # Define default volumes globally
 MUSIC_VOLUME = 0.1
@@ -50,6 +50,9 @@ SFX_DIAMOND_SWORD_ACTIVATE = "./sounds/sfx/KABOOM.mp3"
 SFX_ENDERPEARL_READY = "./sounds/sfx/This is an Ender Pearl.mp3"
 SFX_ENDERPEARL_USED = "./sounds/sfx/And this is the only one I had, no biggie.mp3"
 SFX_ENDERPEARL_ACTIVATE = "./sounds/sfx/KABOOM.mp3"
+SFX_LUCKY_CLAIM = "./sounds/sfx/LuckyClaim.mp3"
+SFX_TNT_EXPLODE = "./sounds/sfx/TNT_Explode.mp3"
+SFX_ELYTRA_SAVE = "./sounds/sfx/Elytra_Save.mp3"
 
 # Image assets
 IMAGE_STEVE_STANDING = pygame.image.load("./img/Steve-Standing.png")
@@ -64,6 +67,10 @@ DIAMOND_SWORD_ICON_GRAY = pygame.image.load("./img/Diamond Sword-Grayscale.png")
 ENDER_PEARL_ICON = pygame.image.load("./img/Ender-Pearl.png")
 ENDER_PEARL_ICON_GRAY = pygame.image.load("./img/Ender-Pearl-Grayscale.png")
 LUCKY_BLOCK = pygame.image.load("./img/Lucky-Block.png")
+IMAGE_LUCKY_BLOCK = pygame.image.load("./img/Lucky-Block.png")
+IMAGE_BOOTS = pygame.image.load("./img/Sprint_Boots.png")
+IMAGE_TNT = pygame.image.load("./img/TNT.png")
+IMAGE_ELYTRA = pygame.image.load("./img/Elytra.png")
 MAIN_MENU_BG = pygame.image.load("./img/Main_MenuBG.jpg")
 
 # Splash text options
@@ -144,6 +151,13 @@ KEYBINDS = {
     "ender_pearl": pygame.K_e,
     "sprint": pygame.K_LSHIFT,
 }
+
+# Ability configuration
+ABILITY_BOOT_DURATION = 30.0
+ABILITY_TNT_DURATION = 60.0
+ABILITY_ELYTRA_DURATION = 60.0
+active_ability = None
+ability_timer = 0.0
 
 # ----------------------------
 # GAME CLASSES AND FUNCTIONS
@@ -323,6 +337,20 @@ class Steve(pygame.sprite.Sprite):
         self.drop_chance = 5
 
 
+# Lucky block sprite
+class LuckyBlock(pygame.sprite.Sprite):
+    def __init__(self):
+        super().__init__()
+        self.image = pygame.transform.scale(IMAGE_LUCKY_BLOCK, CHICKEN_SIZE)
+        self.rect = self.image.get_rect(
+            midtop=(random.randint(50, SCREEN_WIDTH - 50), -50)
+        )
+        self.speed = random.randint(200, 500)
+
+    def update(self, dt):
+        self.rect.y += self.speed * dt
+
+
 # UI Drawing Functions
 score_feed = []
 
@@ -445,6 +473,20 @@ def draw_ui(
             (ender_icon_pos[0] + ENDER_PEARL_STATUS_SIZE[0] + 5, ender_icon_pos[1]),
         )
 
+    if active_ability:
+        iconsize = 35
+        if active_ability == "boots":
+            icon = pygame.transform.scale(IMAGE_BOOTS, (iconsize, iconsize))
+        elif active_ability == "tnt":
+            icon = pygame.transform.scale(IMAGE_TNT, (iconsize, iconsize))
+        else:
+            icon = pygame.transform.scale(IMAGE_ELYTRA, (iconsize, iconsize))
+        xpos = SCREEN_WIDTH - 150
+        ypos = 70
+        screen.blit(icon, (xpos, ypos))
+        timer_text = FONT(20).render(f"{int(ability_timer)}s", True, WHITE)
+        screen.blit(timer_text, (xpos + iconsize + 5, ypos))
+
 
 # Main menu screen
 def main_menu(screen):
@@ -452,7 +494,7 @@ def main_menu(screen):
     clock = pygame.time.Clock()
     font = FONT(60)
     small_font = FONT(30)
-    splash_base_font_size = 20  # Base size for splash text
+    splash_base_font_size = 20  
     splash_font = lambda size: FONT(size)
 
     if AUDIO_ENABLED:
@@ -711,6 +753,7 @@ def main_menu(screen):
                 "- Avoid missing items or catching with the wrong bucket.",
                 "- Use the Diamond Sword to defeat Chicken Jockeys.",
                 "- Use the Ender Pearl to teleport to the center of the screen.",
+                "- Catch Lucky Blocks to gain special abilities.",
                 "",
                 "Scoring:",
                 "- Catching items correctly increases your score.",
@@ -722,6 +765,7 @@ def main_menu(screen):
                 "- Keep an eye on your sprint bar to move faster when needed.",
                 "- Use the Diamond Sword and Ender Pearl strategically.",
                 "- Watch out for Chicken Jockeys—they're dangerous!",
+                "- Lucky Block abilities can turn the tide of the game!",
             ]
 
             scroll_area = pygame.Rect(70, 120, SCREEN_WIDTH - 140, SCREEN_HEIGHT - 200)
@@ -768,6 +812,7 @@ def game_loop(screen):
     steve = Steve()
     steve_group = pygame.sprite.GroupSingle(steve)
     jockey_group = pygame.sprite.Group()
+    lucky_group = pygame.sprite.Group()
 
     score = 0
     lives = 5
@@ -788,12 +833,25 @@ def game_loop(screen):
     jockey_spawn_interval = random.uniform(25, 45)
     jockey_spawn_chance = 15
 
-    global diamond_sword_timer, diamond_sword_cooldown, ender_pearl_timer
+    lucky_spawn_timer = 0.0
+
+    global diamond_sword_timer, diamond_sword_cooldown, ender_pearl_timer, active_ability, ability_timer
 
     running = True
     while running:
         dt = clock.tick(FPS) / 1000
 
+        # Update ability timer
+        if active_ability:
+            ability_timer -= dt
+            if ability_timer <= 0:
+                active_ability = None
+
+        # Enforce sprint boots infinite stamina
+        if active_ability == "boots":
+            catcher.sprint_timer = 5.0
+
+        # Update diamond sword timer
         if diamond_sword_timer > 0:
             diamond_sword_timer -= dt
             if diamond_sword_timer <= 0:
@@ -805,10 +863,18 @@ def game_loop(screen):
             if diamond_sword_cooldown <= 0:
                 play_sound(SFX_DIAMOND_SWORD_READY, SFX_VOLUME)
 
+        # Update ender pearl timer
         if ender_pearl_timer > 0:
             ender_pearl_timer -= dt
             if ender_pearl_timer <= 0:
                 play_sound(SFX_ENDERPEARL_READY, SFX_VOLUME)
+
+        # Spawn logic for Lucky Block
+        lucky_spawn_timer += dt
+        if lucky_spawn_timer >= spawn_interval and not active_ability:
+            lucky_spawn_timer = 0
+            if random.randint(1, 25) == 1:
+                lucky_group.add(LuckyBlock())
 
         for event in pygame.event.get():
             if event.type == pygame.QUIT:
@@ -864,7 +930,24 @@ def game_loop(screen):
         chicken_group.update(dt)
         steve_group.update(dt)
         jockey_group.update(dt)
+        lucky_group.update(dt)
 
+        # Collision: Lucky Block catch
+        for lb in lucky_group:
+            if catcher.rect.colliderect(lb.rect):
+                # Claim ability
+                choice = random.choice(["boots", "tnt", "elytra"])
+                active_ability = choice
+                if choice == "boots":
+                    ability_timer = ABILITY_BOOT_DURATION
+                elif choice == "tnt":
+                    ability_timer = ABILITY_TNT_DURATION
+                elif choice == "elytra":
+                    ability_timer = ABILITY_ELYTRA_DURATION
+                play_sound(SFX_LUCKY_CLAIM, SFX_VOLUME)
+                lucky_group.empty()
+
+        # Collision: Chicken
         for chicken in chicken_group:
             if catcher.rect.colliderect(chicken.rect):
                 if isinstance(chicken, CookedChicken):
@@ -901,6 +984,7 @@ def game_loop(screen):
                             streak = 0
                 chicken.kill()
 
+        # Collision: Chicken missed
         for chicken in chicken_group:
             if chicken.rect.top >= SCREEN_HEIGHT:
                 if isinstance(chicken, CookedChicken):
@@ -923,6 +1007,7 @@ def game_loop(screen):
                         streak = 0
                     chicken.kill()
 
+        # Frenzy activation
         if (
             not frenzy_active
             and streak >= FRENZY_ACTIVATE_STREAK
@@ -937,6 +1022,7 @@ def game_loop(screen):
                 pygame.mixer.music.play(-1)
             streak = 0
 
+        # Frenzy timer
         if frenzy_active:
             frenzy_timer -= dt
             frenzy_multi = max(1.5, 5.0 - (frenzy_chicken_count // 10) * 0.5)
@@ -951,6 +1037,7 @@ def game_loop(screen):
         if frenzy_cooldown > 0:
             frenzy_cooldown -= dt
 
+        # Steve dropping
         if steve.is_dropping:
             if catcher.rect.colliderect(steve.rect):
                 if catcher.equipped == "water":
@@ -966,18 +1053,39 @@ def game_loop(screen):
                     score -= 500
                     lives -= 1
                     steve.reset_after_drop()
-            if steve.rect.top > SCREEN_HEIGHT:
-                score_feed.append(("-500 (Missed Steve)", pygame.time.get_ticks()))
-                score -= 500
-                lives -= 1
-                steve.reset_after_drop()
+            elif steve.rect.top > SCREEN_HEIGHT:
+                if active_ability == "elytra":
+                    play_sound(SFX_ELYTRA_SAVE, SFX_VOLUME)
+                    active_ability = None
+                    steve.reset_after_drop()
+                else:
+                    score_feed.append(("-500 (Missed Steve)", pygame.time.get_ticks()))
+                    score -= 500
+                    lives -= 1
+                    steve.reset_after_drop()
 
+        # Jockey collision
         for jockey in jockey_group:
             if jockey.rect.top >= SCREEN_HEIGHT:
-                lives -= 3
+                if active_ability == "tnt":
+                    play_sound(SFX_TNT_EXPLODE, SFX_VOLUME)
+                    # Award points for all chickens
+                    pts = len(chicken_group) * 2
+                    score += pts
+                    chicken_group.empty()
+                    active_ability = None
+                else:
+                    lives -= 3
                 jockey.kill()
-            if catcher.rect.colliderect(jockey.rect):
-                if catcher.equipped == "lava":
+            elif catcher.rect.colliderect(jockey.rect):
+                if active_ability == "tnt":
+                    play_sound(SFX_TNT_EXPLODE, SFX_VOLUME)
+                    # Award points for all chickens
+                    pts = len(chicken_group) * 2
+                    score += pts
+                    chicken_group.empty()
+                    active_ability = None
+                elif catcher.equipped == "lava":
                     score -= 1000
                     lives -= 1
                     score_feed.append(
@@ -992,16 +1100,19 @@ def game_loop(screen):
                     score_feed.append(("+500 (Jockey Killed)", pygame.time.get_ticks()))
                     jockey.kill()
 
+        # Steve multiplier timer
         if steve_multiplier_timer > 0:
             steve_multiplier_timer -= dt
         else:
             steve_multi = 1.0
 
+        # Draw everything
         screen.fill(BG_COLOR)
         chicken_group.draw(screen)
         catcher_group.draw(screen)
         steve_group.draw(screen)
         jockey_group.draw(screen)
+        lucky_group.draw(screen)
         draw_ui(
             screen,
             score,
@@ -1072,13 +1183,15 @@ def end_screen(screen, score):
 
 
 def reset_globals():
-    global diamond_sword_timer, diamond_sword_cooldown, PERFECT_CHICKEN_STREAK, PERFECT_CHICKEN_MULTIPLIER, score_feed, ender_pearl_timer
+    global diamond_sword_timer, diamond_sword_cooldown, PERFECT_CHICKEN_STREAK, PERFECT_CHICKEN_MULTIPLIER, score_feed, ender_pearl_timer, active_ability, ability_timer
     diamond_sword_timer = 0
     diamond_sword_cooldown = 0
     PERFECT_CHICKEN_STREAK = 0
     PERFECT_CHICKEN_MULTIPLIER = 1.0
     score_feed = []
     ender_pearl_timer = 0
+    active_ability = None
+    ability_timer = 0.0
 
 
 # ----------------------------
