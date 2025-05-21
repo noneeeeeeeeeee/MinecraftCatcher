@@ -50,9 +50,9 @@ SFX_DIAMOND_SWORD_ACTIVATE = "./sounds/sfx/KABOOM.mp3"
 SFX_ENDERPEARL_READY = "./sounds/sfx/This is an Ender Pearl.mp3"
 SFX_ENDERPEARL_USED = "./sounds/sfx/And this is the only one I had, no biggie.mp3"
 SFX_ENDERPEARL_ACTIVATE = "./sounds/sfx/KABOOM.mp3"
-SFX_LUCKY_CLAIM = "./sounds/sfx/LuckyClaim.mp3"
-SFX_TNT_EXPLODE = "./sounds/sfx/TNT_Explode.mp3"
-SFX_ELYTRA_SAVE = "./sounds/sfx/Elytra_Save.mp3"
+SFX_LUCKY_CLAIM = "./sounds/sfx/LuckyBlock.mp3"
+SFX_TNT_EXPLODE = "./sounds/sfx/LuckyBlock.mp3"
+SFX_ELYTRA_SAVE = "./sounds/sfx/LuckyBlock.mp3"
 
 # Image assets
 IMAGE_STEVE_STANDING = pygame.image.load("./img/Steve-Standing.png")
@@ -518,6 +518,7 @@ def draw_ui(
 def main_menu(screen):
     # Displays the main menu, allowing the player to start the game, view instructions, or adjust settings.
     # Handles button interactions and settings adjustments.
+    global SFX_VOLUME  # Declare SFX_VOLUME as global
     clock = pygame.time.Clock()
     font = FONT(60)
     small_font = FONT(30)
@@ -673,7 +674,7 @@ def main_menu(screen):
                     elif AUDIO_ENABLED and sfx_slider.collidepoint(event.pos):
                         sfx_volume = (event.pos[0] - sfx_slider.x) / slider_width
                         sfx_volume = max(0.0, min(1.0, sfx_volume))
-                        SFX_VOLUME = sfx_volume
+                        SFX_VOLUME = sfx_volume 
                     else:
                         for action, rect in keybinds_rects.items():
                             if rect.collidepoint(event.pos):
